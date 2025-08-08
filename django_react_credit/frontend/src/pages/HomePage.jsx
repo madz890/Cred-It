@@ -1,14 +1,23 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
-import { Menu, User, Upload, X, GraduationCap } from "lucide-react";
+"use client";
+
+import { useState, useRef } from "react";
+import {
+  Menu,
+  User,
+  Upload,
+  X,
+  GraduationCap,
+  Home,
+  UserCircle,
+  FileImage,
+  Info,
+} from "lucide-react";
 import { Button } from "../components/ui/button";
 import ReactCrop, { centerCrop, makeAspectCrop } from "react-image-crop";
 import "react-image-crop/dist/ReactCrop.css";
 import html2canvas from "html2canvas";
-import SidebarDropdown from "../components/SidebarDropdown";
-import ImageUploader from "../components/ImageUploader";
-import ImagePreviewModal from "../components/ImagePreviewModal";
 
 export default function HomePage() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -16,7 +25,8 @@ export default function HomePage() {
   const [previewUrl, setPreviewUrl] = useState(null);
   const [originalPreviewUrl, setOriginalPreviewUrl] = useState(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [isEditing, setIsEditing] = useState(false);
+  const fileInputRef = useRef(null);
+
   const [crop, setCrop] = useState();
   const [completedCrop, setCompletedCrop] = useState(null);
   const [percentCrop, setPercentCrop] = useState(null);
@@ -24,17 +34,6 @@ export default function HomePage() {
   const [rotate, setRotate] = useState(0);
   const [verticalPerspective, setVerticalPerspective] = useState(0);
   const [horizontalPerspective, setHorizontalPerspective] = useState(0);
-  const fileInputRef = useRef(null);
-  const imgRef = useRef(null);
-  const previewRef = useRef(null);
-  const [userName, setUserName] = useState("");
-
-  useEffect(() => {
-    const storedName = localStorage.getItem("userName");
-    if (storedName) {
-      setUserName(storedName);
-    }
-  }, []);
 
   function onImageLoad(e) {
     const { width, height } = e.currentTarget;
@@ -128,19 +127,44 @@ export default function HomePage() {
     if (previewUrl) {
       const newWindow = window.open("", "_blank");
       newWindow.document.write(`
-        <title>Image Preview</title>
-        <body style="margin:0; display:flex; justify-content:center; align-items:center; min-height:100vh; background-color:#2e2e2e;">
-          <img src="${previewUrl}" alt="Preview" style="max-width:95%; max-height:95vh; object-fit:contain;">
-        </body>
-      `);
+          <title>Image Preview</title>
+          <body style="margin:0; display:flex; justify-content:center; align-items:center; min-height:100vh; background-color:#2e2e2e;">
+            <img src="${previewUrl}" alt="Preview" style="max-width:95%; max-height:95vh; object-fit:contain;">
+          </body>
+        `);
     }
   };
+
+  const clipStyle = percentCrop
+    ? {
+        clipPath: (() => {
+          const rad = (Math.PI * rotate) / 180;
+          const cos = Math.cos(rad);
+          const sin = Math.sin(rad);
+
+          const centerX = percentCrop.x + percentCrop.width / 2;
+          const centerY = percentCrop.y + percentCrop.height / 2;
+
+          const originalX = centerX * cos + centerY * sin;
+          const originalY = centerX * sin + centerY * cos;
+
+          const originalTop = originalY - percentCrop.height / 2;
+          const originalLeft = originalX - percentCrop.width / 2;
+
+          return `inset(${originalTop}% ${
+            100 - (originalLeft + percentCrop.width)
+          }% ${100 - (originalTop + percentCrop.height)}% ${originalLeft}%)`;
+        })(),
+      }
+    : { clipPath: "none" };
 
   const imageTransformStyle = {
     transform: `rotateX(${verticalPerspective}deg) rotateY(${horizontalPerspective}deg) rotate(${rotate}deg)`,
     transition: "transform 0.15s ease-out",
   };
-
+  {
+    /*-------------------------------------------*/
+  }
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50">
       <header className="bg-white shadow-sm border-b px-4 py-3 flex items-center justify-between relative z-30">
@@ -173,10 +197,7 @@ export default function HomePage() {
         </div>
       </header>
 
-      {/* Sidebar */}
       <SidebarDropdown sidebarOpen={sidebarOpen} />
-
-      {/* Sidebar Overlay */}
       {sidebarOpen && (
         <div
           className="fixed top-[80px] left-0 right-0 bottom-0 bg-black bg-opacity-50 z-10"
@@ -184,7 +205,6 @@ export default function HomePage() {
         />
       )}
 
-      {/* Main Content */}
       <main
         className={`flex flex-col items-center justify-center min-h-[calc(100vh-80px)] px-4 relative z-10 transition-all duration-300 ${
           sidebarOpen ? "ml-64" : "ml-0"
@@ -209,35 +229,19 @@ export default function HomePage() {
             <h2 className="text-gray-900 font-semibold text-xl mb-6 text-center">
               Upload Document
             </h2>
-            <div
-              className="bg-gray-50 rounded-xl border-2 border-dashed border-gray-300 p-12 text-center mb-6 hover:border-blue-400 hover:bg-blue-50 transition-all cursor-pointer group"
-              onClick={handleUploadAreaClick}
-            >
-              <input
-                type="file"
-                accept="image/jpeg, image/png"
-                onChange={handleFileChange}
-                ref={fileInputRef}
-                style={{ display: "none" }}
-              />
-              <Upload className="w-12 h-12 text-gray-400 group-hover:text-blue-500 mx-auto mb-4 transition-colors" />
-              <p className="text-gray-600 group-hover:text-blue-600 transition-colors">
-                Click or drag image to this area to upload
-              </p>
-              {selectedFile && (
-                <p className="text-green-600 mt-3 font-medium">
-                  ✓ File selected: {selectedFile.name}
-                </p>
-              )}
-            </div>
+
+            <ImageUploader
+              selectedFile={selectedFile}
+              setSelectedFile={setSelectedFile}
+              setPreviewUrl={setPreviewUrl}
+            />
+
             <p className="text-gray-500 text-sm mb-8 text-center">
               Supported formats: JPEG, PNG
             </p>
+
             <div className="flex gap-4 justify-center">
-              <Button
-                variant="outline"
-                className="px-8 py-2 border-gray-300 hover:bg-gray-50 bg-transparent"
-              >
+              <Button variant="outline" className="px-8 py-2">
                 Cancel
               </Button>
               <Button
@@ -252,7 +256,7 @@ export default function HomePage() {
 
         {isDialogOpen && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-2xl shadow-2xl max-w-5xl w-full mx-4">
+            <div className="bg-white rounded-2xl shadow-2xl w-[95vw] h-[90vh] mx-4 overflow-auto">
               <div className="flex justify-between items-center p-6 border-b border-gray-200">
                 <h3 className="text-xl font-semibold text-gray-900">
                   Image Preview & Edit
@@ -276,13 +280,28 @@ export default function HomePage() {
                     />
                   </div>
                 )}
+
                 {isEditing && previewUrl && (
-                  <div className="flex flex-col md:flex-row gap-8 items-center">
+                  <div className="flex flex-col md:flex-row gap-8 items-center h-[70vh]">
                     <div className="w-full md:w-1/2">
                       <h4 className="text-lg font-medium text-center mb-2">
                         Edit
                       </h4>
-                      <div style={{ perspective: "1000px" }}>
+                      <div
+                        style={{
+                          perspective: "1000px",
+                          height: "100%",
+                          position: "relative",
+                        }}
+                      >
+                        <div className="absolute inset-0 z-10 pointer-events-none grid grid-cols-12 grid-rows-12">
+                          {[...Array(144)].map((_, i) => (
+                            <div
+                              key={`v-${i}`}
+                              className="border border-gray-300"
+                            ></div>
+                          ))}
+                        </div>
                         <ReactCrop
                           crop={crop}
                           onChange={(pixelCrop, percentageCrop) => {
@@ -290,14 +309,16 @@ export default function HomePage() {
                             setPercentCrop(percentageCrop);
                           }}
                           onComplete={(c) => setCompletedCrop(c)}
-                          aspect={undefined}
                         >
                           <img
                             ref={imgRef}
                             alt="Edit"
-                            src={originalPreviewUrl}
+                            src={previewUrl}
                             style={{
                               transform: `scale(${scale}) ${imageTransformStyle.transform}`,
+                              maxHeight: "100%",
+                              maxWidth: "100%",
+                              objectFit: "contain",
                             }}
                             onLoad={onImageLoad}
                           />
@@ -310,25 +331,39 @@ export default function HomePage() {
                       </h4>
                       <div
                         ref={previewRef}
+                        className="relative w-full h-[400px] mx-auto rounded-md overflow-hidden"
                         style={{
                           perspective: "1000px",
-                          display: "inline-block",
+                          border: "1px solid #ccc",
+                          background: "#f8f8f8",
                         }}
                       >
-                        <div style={imageTransformStyle}>
-                          {" "}
-                          {/* Apply rotation to the container */}
+                        <div
+                          style={{
+                            ...imageTransformStyle,
+                            transform: `scale(${scale}) ${imageTransformStyle.transform}`,
+                            width: "100%",
+                            height: "100%",
+                            display: "flex",
+                            justifyContent: "center",
+                            alignItems: "center",
+                          }}
+                        >
                           <img
                             alt="Live Preview"
-                            src={originalPreviewUrl}
+                            src={previewUrl}
                             style={{
+                              objectFit: "contain",
+                              maxWidth: "100%",
+                              maxHeight: "100%",
                               clipPath: percentCrop
                                 ? `inset(${percentCrop.y}% ${
                                     100 - (percentCrop.x + percentCrop.width)
                                   }% ${
                                     100 - (percentCrop.y + percentCrop.height)
                                   }% ${percentCrop.x}%)`
-                                : "none", // Use clipPath for cropping
+                                : "none",
+                              transform: `scale(${previewScale})`,
                               transformOrigin: "center",
                             }}
                           />
@@ -337,16 +372,21 @@ export default function HomePage() {
                     </div>
                   </div>
                 )}
+
                 <p className="text-gray-600 text-sm my-6 text-center">
                   {isEditing
                     ? "Adjust controls and crop area."
                     : "Review the image before continuing."}
                 </p>
+
                 {isEditing && (
                   <div className="flex flex-wrap justify-center gap-4 mb-6">
-                    <div className="w-full px-4">
+                    <div className="w-full px-4 text-center">
                       <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Vertical Perspective: {verticalPerspective}
+                        Vertical Perspective:{" "}
+                        <span className="font-bold">
+                          {verticalPerspective}°
+                        </span>
                       </label>
                       <input
                         type="range"
@@ -356,12 +396,16 @@ export default function HomePage() {
                         onChange={(e) =>
                           setVerticalPerspective(Number(e.target.value))
                         }
-                        className="w-full h-2 bg-blue-100 rounded-lg appearance-none cursor-pointer"
+                        className="w-[75%] mx-auto block accent-blue-500"
                       />
                     </div>
-                    <div className="w-full px-4">
+
+                    <div className="w-full px-4 text-center">
                       <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Horizontal Perspective: {horizontalPerspective}
+                        Horizontal Perspective:{" "}
+                        <span className="font-bold">
+                          {horizontalPerspective}°
+                        </span>
                       </label>
                       <input
                         type="range"
@@ -371,12 +415,13 @@ export default function HomePage() {
                         onChange={(e) =>
                           setHorizontalPerspective(Number(e.target.value))
                         }
-                        className="w-full h-2 bg-blue-100 rounded-lg appearance-none cursor-pointer"
+                        className="w-[75%] mx-auto block accent-blue-500"
                       />
                     </div>
-                    <div className="w-full px-4">
+
+                    <div className="w-full px-4 text-center">
                       <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Rotation: {rotate}°
+                        Rotation: <span className="font-bold">{rotate}°</span>
                       </label>
                       <input
                         type="range"
@@ -384,30 +429,57 @@ export default function HomePage() {
                         max="180"
                         value={rotate}
                         onChange={(e) => setRotate(Number(e.target.value))}
-                        className="w-full h-2 bg-blue-100 rounded-lg appearance-none cursor-pointer"
+                        className="w-[75%] mx-auto block accent-blue-500"
+                      />
+                    </div>
+                    <div className="w-full px-4 text-center">
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Preview Zoom:{" "}
+                        <span className="font-bold">
+                          {Math.round(previewScale * 100)}%
+                        </span>
+                      </label>
+                      <input
+                        type="range"
+                        min="0.1"
+                        max="2"
+                        step="0.1"
+                        value={previewScale}
+                        onChange={(e) =>
+                          setPreviewScale(Number(e.target.value))
+                        }
+                        className="w-[75%] mx-auto block accent-blue-500"
                       />
                     </div>
                   </div>
                 )}
+
                 <div className="flex justify-end gap-4 mt-4">
                   {!isEditing ? (
                     <>
                       <Button
                         variant="outline"
-                        className="px-6 py-2 border-gray-300 hover:bg-gray-50 bg-transparent"
+                        className="px-6 py-2"
                         onClick={() => setIsEditing(true)}
                       >
                         Edit
                       </Button>
                       <Button
                         variant="outline"
-                        className="px-6 py-2 border-gray-300 hover:bg-gray-50 bg-transparent"
+                        className="px-6 py-2"
                         onClick={handleViewImage}
                       >
                         View Image
                       </Button>
                       <Button
-                        className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white"
+                        variant="outline"
+                        className="px-6 py-2"
+                        onClick={handleDownloadImage}
+                      >
+                        Download
+                      </Button>
+                      <Button
+                        className="px-6 py-2 bg-blue-600 text-white"
                         onClick={handleDialogContinue}
                       >
                         Continue
@@ -415,7 +487,7 @@ export default function HomePage() {
                     </>
                   ) : (
                     <Button
-                      className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white"
+                      className="px-6 py-2 bg-blue-600 text-white"
                       onClick={handleDoneEditing}
                     >
                       Done Editing
@@ -427,14 +499,6 @@ export default function HomePage() {
           </div>
         )}
       </main>
-
-      {/* Preview Dialog */}
-      <ImagePreviewModal
-        isOpen={isDialogOpen}
-        previewUrl={previewUrl}
-        onClose={handleDialogClose}
-        onContinue={handleDialogContinue}
-      />
     </div>
   );
 }
